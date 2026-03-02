@@ -18,19 +18,19 @@ RUN apt update && apt install -y \
 RUN mkdir -p /root/.vnc && \
     echo "root" | vncpasswd -f > /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd && \
-    echo "#!/bin/bash\nlxsession &" > /root/.vnc/xstartup && \
+    printf '#!/bin/bash\nlxsession &\n' > /root/.vnc/xstartup && \
     chmod +x /root/.vnc/xstartup
 
-# Supervisor config
-RUN echo "[supervisord]
-nodaemon=true
-
-[program:vnc]
-command=/usr/bin/tightvncserver :1 -geometry 1280x800 -depth 24
-
-[program:novnc]
-command=/usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 0.0.0.0:${PORT}
-" > /etc/supervisor/conf.d/supervisord.conf
+# Create supervisor config properly
+RUN printf "[supervisord]\n\
+nodaemon=true\n\
+\n\
+[program:vnc]\n\
+command=/usr/bin/tightvncserver :1 -geometry 1280x800 -depth 24\n\
+\n\
+[program:novnc]\n\
+command=/usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 0.0.0.0:\${PORT}\n" \
+> /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 8080
 
