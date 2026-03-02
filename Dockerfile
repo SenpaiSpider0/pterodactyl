@@ -2,40 +2,36 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1
-ENV VNC_PORT=5901
-ENV NOVNC_PORT=80
 ENV RESOLUTION=1280x800
 
-# Install desktop + VNC + noVNC
-RUN apt update && apt upgrade -y && \
-    apt install -y \
+RUN apt update && apt install -y \
     lxde-core \
-    lxterminal \
     tightvncserver \
     novnc \
     websockify \
     supervisor \
-    wget \
-    curl \
     net-tools \
-    sudo && \
+    curl && \
     apt clean
 
-# Create VNC startup script
+# Setup VNC
 RUN mkdir -p /root/.vnc && \
-    echo "#!/bin/bash\nlxsession -s LXDE &" > /root/.vnc/xstartup && \
+    echo "root" | vncpasswd -f > /root/.vnc/passwd && \
+    chmod 600 /root/.vnc/passwd && \
+    echo "#!/bin/bash\nlxsession &" > /root/.vnc/xstartup && \
     chmod +x /root/.vnc/xstartup
 
-# Set VNC password
-RUN echo "root" | vncpasswd -f > /root/.vnc/passwd && \
-    chmod 600 /root/.vnc/passwd
-
 # Supervisor config
-RUN echo "[supervisord]\nnodaemon=true\n\
-\n[program:vnc]\ncommand=/usr/bin/tightvncserver :1 -geometry ${RESOLUTION} -depth 24\n\
-\n[program:novnc]\ncommand=/usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen ${NOVNC_PORT}" \
-> /etc/supervisor/conf.d/supervisord.conf
+RUN echo "[supervisord]
+nodaemon=true
 
-EXPOSE 80 5901
+[program:vnc]
+command=/usr/bin/tightvncserver :1 -geometry 1280x800 -depth 24
+
+[program:novnc]
+command=/usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 0.0.0.0:${PORT}
+" > /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 8080
 
 CMD ["/usr/bin/supervisord"]
