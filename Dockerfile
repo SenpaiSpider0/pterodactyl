@@ -1,39 +1,41 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
+ENV DISPLAY=:1
+ENV VNC_PORT=5901
+ENV NOVNC_PORT=80
+ENV RESOLUTION=1280x800
 
-# Update and install required packages
+# Install desktop + VNC + noVNC
 RUN apt update && apt upgrade -y && \
     apt install -y \
-    curl \
+    lxde-core \
+    lxterminal \
+    tightvncserver \
+    novnc \
+    websockify \
+    supervisor \
     wget \
-    git \
-    unzip \
-    software-properties-common \
-    ca-certificates \
-    lsb-release \
-    apt-transport-https \
-    gnupg \
-    nginx \
-    mariadb-server \
-    redis-server \
-    php8.1 \
-    php8.1-cli \
-    php8.1-fpm \
-    php8.1-mysql \
-    php8.1-gd \
-    php8.1-mbstring \
-    php8.1-bcmath \
-    php8.1-xml \
-    php8.1-curl \
-    php8.1-zip \
-    php8.1-intl \
-    composer \
-    && apt clean
+    curl \
+    net-tools \
+    sudo && \
+    apt clean
 
-WORKDIR /var/www/pterodactyl
+# Create VNC startup script
+RUN mkdir -p /root/.vnc && \
+    echo "#!/bin/bash\nlxsession -s LXDE &" > /root/.vnc/xstartup && \
+    chmod +x /root/.vnc/xstartup
 
-EXPOSE 80 443
+# Set VNC password
+RUN echo "root" | vncpasswd -f > /root/.vnc/passwd && \
+    chmod 600 /root/.vnc/passwd
 
-CMD ["/bin/bash"]
+# Supervisor config
+RUN echo "[supervisord]\nnodaemon=true\n\
+\n[program:vnc]\ncommand=/usr/bin/tightvncserver :1 -geometry ${RESOLUTION} -depth 24\n\
+\n[program:novnc]\ncommand=/usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen ${NOVNC_PORT}" \
+> /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 80 5901
+
+CMD ["/usr/bin/supervisord"]
